@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // All reads/writes from backend service account only (server-side)
+    // Frontend never reads Firestore directly - uses the Express API
+    // These rules block all direct client access for security
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
