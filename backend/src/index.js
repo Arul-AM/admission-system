@@ -10,8 +10,19 @@ const app = express();
 
 // Security
 app.use(helmet());
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://admission-system-kjre.vercel.app',
+  'http://localhost:5173',
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 
