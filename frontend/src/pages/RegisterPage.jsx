@@ -23,7 +23,7 @@ const DEPARTMENTS = [
   'MINING ENGINEERING',
   'PRINTING AND PACKAGING TECHNOLOGY'
 ];
-const ROUNDS = ['', 'Round 1','Round 1 Upward ', 'Round 2', 'Round 2 Upward '];
+const ROUNDS = ['Round 1','Round 1 Upward ', 'Round 2', 'Round 2 Upward '];
 
 export default function RegisterPage() {
   const { register, handleSubmit, watch, formState: { errors } } = useForm();
