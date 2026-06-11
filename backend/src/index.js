@@ -11,7 +11,18 @@ const app = express();
 // Security
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: (origin, callback) => {
+    // Allow no-origin requests (mobile/Postman)
+    if (!origin) return callback(null, true);
+    // Allow any vercel.app subdomain + localhost
+    if (
+      origin.endsWith('.vercel.app') ||
+      origin.startsWith('http://localhost')
+    ) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 
