@@ -12,18 +12,16 @@ const app = express();
 app.use(helmet());
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow no-origin requests (mobile/Postman)
     if (!origin) return callback(null, true);
-    // Allow any vercel.app subdomain + localhost
-    if (
-      origin.endsWith('.vercel.app') ||
-      origin.startsWith('http://localhost')
-    ) {
-      return callback(null, true);
-    }
-    callback(new Error('Not allowed by CORS'));
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    if (origin.startsWith('http://localhost')) return callback(null, true);
+    if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) return callback(null, true);
+    console.warn(`CORS blocked: ${origin}`);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 // Rate limiting
