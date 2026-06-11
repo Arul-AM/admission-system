@@ -5,7 +5,6 @@ import api from '../services/api';
 import Navbar from '../components/shared/Navbar';
 
 const DEPARTMENTS = [
-  '',
   'BIO MEDICAL ENGINEERING',
   'CIVIL ENGINEERING',
   'CIVIL ENGINEERING TAMIL MEDIUM',
