@@ -2,8 +2,26 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 import AdminSidebar from '../components/shared/AdminSidebar';
 
-const DEPARTMENTS = ['', 'CSE', 'ECE', 'EEE', 'IT', 'MECH', 'CIVIL', 'OTHER'];
-const ROUNDS = ['', 'Round 1', 'Round 2', 'Upward Movement'];
+const DEPARTMENTS = [
+  '',
+  'BIO MEDICAL ENGINEERING',
+  'CIVIL ENGINEERING',
+  'CIVIL ENGINEERING TAMIL MEDIUM',
+  'COMPUTER SCIENCE AND ENGINEERING',
+  'ELECTRICAL AND ELECTRONICS ENGINEERING',
+  'ELECTRONICS AND COMMUNICATION ENGINEERING',
+  'ELECTRONICS ENGINEERING (VLSI DESIGN AND TECHNOLOGY)',
+  'GEO INFORMATICS',
+  'INDUSTRIAL ENGINEERING',
+  'INFORMATION TECHNOLOGY (SS)',
+  'MANUFACTURING ENGINEERING',
+  'MATERIALS SCIENCE AND ENGINEERING',
+  'MECHANICAL ENGINEERING',
+  'MECHANICAL ENGINEERING TAMIL MEDIUM',
+  'MINING ENGINEERING',
+  'PRINTING AND PACKAGING TECHNOLOGY'
+];
+const ROUNDS = ['', 'Round 1','Round 1 Upward ', 'Round 2', 'Round 2 Upward '];
 const STATUSES = ['', 'In Progress', 'Completed', 'Help Desk'];
 const STAGE_NAMES = ['Registered', 'Document Verification', 'Certificate Verification', 'Online Verification', 'Photo Capture', 'Admission Completion', 'Completed'];
 
