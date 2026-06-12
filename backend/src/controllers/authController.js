@@ -19,9 +19,6 @@ const generateToken = (user) => {
   );
 };
 
-// =============================
-// ADMIN + STAFF LOGIN
-// =============================
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -32,134 +29,122 @@ const login = async (req, res) => {
       });
     }
 
-   // -------------------------
-// Check Admin Collection
-// -------------------------
-const adminSnapshot = await db
-  .collection('admins')
-  .where('username', '==', username)
-  .limit(1)
-  .get();
+    // =========================
+    // ADMIN LOGIN
+    // =========================
+    const adminSnapshot = await db
+      .collection('admins')
+      .where('username', '==', username)
+      .limit(1)
+      .get();
 
-console.log("Login username:", username);
-console.log("Admin docs found:", adminSnapshot.size);
+    if (!adminSnapshot.empty) {
+      const adminDoc = adminSnapshot.docs[0];
 
-if (!adminSnapshot.empty) {
-  const adminDoc = adminSnapshot.docs[0];
+      const admin = {
+        uid: adminDoc.id,
+        ...adminDoc.data(),
+      };
 
-  const admin = {
-    uid: adminDoc.id,
-    ...adminDoc.data(),
-  };
+      const validPassword = await bcrypt.compare(
+        password,
+        admin.password
+      );
 
-  console.log("Admin data:", admin);
+      if (!validPassword) {
+        return res.status(401).json({
+          message: 'Invalid credentials',
+        });
+      }
 
-  const validPassword = await bcrypt.compare(
-    password,
-    admin.password
-  );
+      const token = generateToken({
+        ...admin,
+        role: 'admin',
+      });
 
-  console.log("Password entered:", password);
-  console.log("Stored hash:", admin.password);
-  console.log("Password match:", validPassword);
+      return res.status(200).json({
+        token,
+        user: {
+          uid: admin.uid,
+          username: admin.username,
+          role: 'admin',
+        },
+      });
+    }
 
-  if (!validPassword) {
-    return res.status(401).json({
-      message: 'Invalid credentials',
+    // =========================
+    // STAFF LOGIN
+    // =========================
+    const staffSnapshot = await db
+      .collection('users')
+      .where('username', '==', username)
+      .where('role', '==', 'staff')
+      .limit(1)
+      .get();
+
+    if (staffSnapshot.empty) {
+      return res.status(401).json({
+        message: 'Invalid credentials',
+      });
+    }
+
+    const staffDoc = staffSnapshot.docs[0];
+
+    const staff = {
+      uid: staffDoc.id,
+      ...staffDoc.data(),
+    };
+
+    if (staff.isActive === false) {
+      return res.status(403).json({
+        message: 'Account disabled',
+      });
+    }
+
+    const validPassword = await bcrypt.compare(
+      password,
+      staff.password
+    );
+
+    if (!validPassword) {
+      return res.status(401).json({
+        message: 'Invalid credentials',
+      });
+    }
+
+    const token = generateToken({
+      ...staff,
+      role: 'staff',
+    });
+
+    await auditLog(
+      staff.uid,
+      'staff',
+      'LOGIN',
+      {
+        username,
+        ip: req.ip,
+      }
+    );
+
+    return res.status(200).json({
+      token,
+      user: {
+        uid: staff.uid,
+        username: staff.username,
+        role: 'staff',
+        stage: staff.stage,
+        stageName: staff.stageName,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      message: 'Server error',
     });
   }
-
-  const token = generateToken({
-    ...admin,
-    role: 'admin',
-  });
-
-  return res.status(200).json({
-    token,
-    user: {
-      uid: admin.uid,
-      username: admin.username,
-      role: 'admin',
-    },
-  });
-}
-   // -------------------------
-// Check Staff Collection
-// -------------------------
-const staffSnapshot = await db
-  .collection('users')
-  .where('username', '==', username)
-  .where('role', '==', 'staff')
-  .limit(1)
-  .get();
-
-console.log("Staff docs found:", staffSnapshot.size);
-
-if (staffSnapshot.empty) {
-  console.log("No staff found with username:", username);
-
-  return res.status(401).json({
-    message: 'Invalid credentials',
-  });
-}
-
-const staffDoc = staffSnapshot.docs[0];
-
-const staff = {
-  uid: staffDoc.id,
-  ...staffDoc.data(),
 };
-
-console.log("Staff data:", staff);
-
-if (staff.isActive === false) {
-  console.log("Staff account disabled");
-
-  return res.status(403).json({
-    message: 'Account disabled',
-  });
-}
-
-const validPassword = await bcrypt.compare(
-  password,
-  staff.password
-);
-
-console.log("Password entered:", password);
-console.log("Stored hash:", staff.password);
-console.log("Password match:", validPassword);
-
-if (!validPassword) {
-  return res.status(401).json({
-    message: 'Invalid credentials',
-  });
-}
-
-const token = generateToken({
-  ...staff,
-  role: 'staff',
-});
-
-await auditLog(
-  staff.uid,
-  'staff',
-  'LOGIN',
-  {
-    username,
-    ip: req.ip,
-  }
-);
-
-return res.status(200).json({
-  token,
-  user: {
-    uid: staff.uid,
-    username: staff.username,
-    role: 'staff',
-    stage: staff.stage,
-    stageName: staff.stageName,
-  },
-});
   
 // =============================
 // STUDENT LOGIN
