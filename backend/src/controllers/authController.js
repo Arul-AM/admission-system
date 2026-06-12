@@ -87,8 +87,9 @@ if (!adminSnapshot.empty) {
 // Check Staff Collection
 // -------------------------
 const staffSnapshot = await db
-  .collection('staff')
+  .collection('users')
   .where('username', '==', username)
+  .where('role', '==', 'staff')
   .limit(1)
   .get();
 
@@ -156,17 +157,9 @@ return res.status(200).json({
     username: staff.username,
     role: 'staff',
     stage: staff.stage,
+    stageName: staff.stageName,
   },
 });
-
-  } catch (error) {
-    console.error(error); 
-
-    res.status(500).json({
-      message: 'Server error',
-    });
-  }
-};
   
 // =============================
 // STUDENT LOGIN
