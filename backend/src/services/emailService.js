@@ -112,7 +112,7 @@ function stageHTML(name, token, icon, stageDone, nextStage, stageNum) {
   `;
 }
 
-// ─── Transporter (compatible with nodemailer v6/v7/v8) ────────────────────────
+// ─── Transporter ─────────────────────────────────────────────────────────────
 let transporter = null;
 
 const getTransporter = () => {
@@ -127,65 +127,72 @@ const getTransporter = () => {
       pass: process.env.EMAIL_PASS,
     },
     tls: { rejectUnauthorized: false },
+    connectionTimeout: 5000,  // fail fast — 5 sec max
+    greetingTimeout: 5000,
+    socketTimeout: 8000,
   });
 
-  transporter.verify((err) => {
-    if (err) console.error('[Email] ❌ SMTP verify failed:', err.message);
-    else console.log('[Email] ✅ Gmail SMTP ready');
-  });
+  // Verify in background after 3s — never blocks startup
+  setTimeout(() => {
+    transporter.verify((err) => {
+      if (err) console.error('[Email] ❌ SMTP verify failed:', err.message);
+      else console.log('[Email] ✅ Gmail SMTP ready');
+    });
+  }, 3000);
 
   return transporter;
 };
 
-// ─── Send Email ───────────────────────────────────────────────────────────────
+// ─── Send Email (truly non-blocking — logs result async) ─────────────────────
 const sendEmail = async (toEmail, templateKey, templateData, studentId) => {
-  let status = 'sent';
-  let errorMsg = null;
+  // Fire and forget — run in background, never block registration response
+  setImmediate(async () => {
+    let status = 'sent';
+    let errorMsg = null;
 
-  try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.log(`[EMAIL DEV MODE] To: ${toEmail} | Template: ${templateKey}`);
-      console.log('[EMAIL DEV MODE] Data:', templateData);
-      status = 'dev_mode';
-    } else {
-      const template = EMAIL_TEMPLATES[templateKey];
-      if (!template) throw new Error(`Unknown email template: ${templateKey}`);
+    try {
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        console.log(`[EMAIL DEV MODE] To: ${toEmail} | Template: ${templateKey}`);
+        status = 'dev_mode';
+      } else {
+        const template = EMAIL_TEMPLATES[templateKey];
+        if (!template) throw new Error(`Unknown email template: ${templateKey}`);
 
-      // Pass templateData values in order to the template function
-      const values = Object.values(templateData);
-      const { subject, html } = template(...values);
+        const values = Object.values(templateData);
+        const { subject, html } = template(...values);
 
-      const transport = getTransporter();
-      const info = await transport.sendMail({
-        from: `"CEG Admissions - Anna University" <${process.env.EMAIL_USER}>`,
-        to: toEmail,
-        subject,
-        html,
-      });
+        const transport = getTransporter();
+        const info = await transport.sendMail({
+          from: `"CEG Admissions - Anna University" <${process.env.EMAIL_USER}>`,
+          to: toEmail,
+          subject,
+          html,
+        });
 
-      console.log(`[Email] ✅ Sent "${subject}" to ${toEmail} — MessageId: ${info.messageId}`);
+        console.log(`[Email] ✅ Sent "${subject}" to ${toEmail} — ${info.messageId}`);
+      }
+    } catch (err) {
+      console.error(`[Email] ❌ Failed (${templateKey}) to ${toEmail}:`, err.message);
+      status = 'failed';
+      errorMsg = err.message;
     }
-  } catch (err) {
-    console.error(`[Email] ❌ Failed (${templateKey}) to ${toEmail}:`, err.message);
-    status = 'failed';
-    errorMsg = err.message;
-  }
 
-  // Always log to Firestore
-  try {
-    await db.collection('emailLogs').add({
-      studentId,
-      toEmail,
-      templateKey,
-      sentAt: new Date().toISOString(),
-      status,
-      ...(errorMsg && { error: errorMsg }),
-    });
-  } catch (logErr) {
-    console.error('[Email] Firestore log error:', logErr.message);
-  }
+    // Log to Firestore in background
+    try {
+      const { db } = require('../config/firebase');
+      await db.collection('emailLogs').add({
+        studentId, toEmail, templateKey,
+        sentAt: new Date().toISOString(),
+        status,
+        ...(errorMsg && { error: errorMsg }),
+      });
+    } catch (logErr) {
+      console.error('[Email] Firestore log error:', logErr.message);
+    }
+  });
 
-  return status === 'sent' || status === 'dev_mode';
+  // Return immediately — don't wait for email to send
+  return true;
 };
 
 module.exports = { sendEmail, EMAIL_TEMPLATES };
