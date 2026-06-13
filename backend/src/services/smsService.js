@@ -41,7 +41,7 @@ const sendSMS = async (mobile, message, studentId, type) => {
   let errorMsg = null;
 
   try {
-    if (process.env.FAST2SMS_API_KEY) {
+    if (false && process.env.FAST2SMS_API_KEY) {
       console.log(`[Fast2SMS] Sending to ${mobile}...`);
       await sendViaFast2SMS(mobile, message);
     } else {
