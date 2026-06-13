@@ -1,8 +1,17 @@
 const { db } = require('../config/firebase');
 const { generateAdmissionToken, generateHelpDeskToken } = require('../services/tokenService');
 const { sendSMS, SMS_TEMPLATES } = require('../services/smsService');
-const { sendEmail } = require('../services/emailService');
 const { auditLog } = require('../middleware/audit');
+
+// Safe email import — won't crash if emailService.js is missing
+let sendEmail = null;
+try {
+  const emailService = require('../services/emailService');
+  sendEmail = emailService.sendEmail;
+  console.log('✅ Email service loaded');
+} catch (e) {
+  console.warn('⚠️ emailService.js not found — emails disabled:', e.message);
+}
 
 const STAGES = [
   'Registered',
@@ -21,6 +30,8 @@ const registerStudent = async (req, res) => {
       name, applicationNumber, allotmentCategory, department,
       mobile, email, round, onlineAdmissionDone, semesterFeePaid,
     } = req.body;
+
+    console.log('📝 Registration attempt:', { applicationNumber, department, round });
 
     // Check duplicate
     const existing = await db.collection('students')
@@ -44,6 +55,8 @@ const registerStudent = async (req, res) => {
     } else {
       token = await generateAdmissionToken(round, department);
     }
+
+    console.log('🎟️ Token generated:', token, '| Type:', tokenType);
 
     const studentData = {
       name, applicationNumber, allotmentCategory, department,
@@ -70,9 +83,9 @@ const registerStudent = async (req, res) => {
       console.error('❌ SMS ERROR:', smsErr.message);
     }
 
-    // Send Email (non-blocking)
+    // Send Email (non-blocking, only if service is loaded)
     try {
-      if (email) {
+      if (sendEmail && email) {
         await sendEmail(
           email,
           'registration',
@@ -135,7 +148,6 @@ const getAllStudents = async (req, res) => {
     console.log('REQ.USER:', req.user);
     console.log('REQ.QUERY:', req.query);
 
-    // Fetch all — filter in memory to avoid composite index requirement
     const snapshot = await db.collection('students').get();
     let students = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
 
@@ -161,7 +173,6 @@ const getAllStudents = async (req, res) => {
     const paginated = students.slice(start, start + parseInt(limit));
 
     console.log('Students Returned:', paginated.length);
-
     res.json({ students: paginated, total, page: parseInt(page), limit: parseInt(limit) });
   } catch (err) {
     console.error('GET ALL STUDENTS ERROR:', err);
@@ -195,11 +206,9 @@ const advanceStage = async (req, res) => {
     console.log('========== ADVANCE STAGE ==========');
     console.log('USER:', req.user);
     console.log('STAFF STAGE:', req.user.stage);
-    console.log('STUDENT ID:', id);
     console.log('STUDENT CURRENT STAGE:', student.currentStage);
     console.log('===================================');
 
-    // Stage lock — staff can only process their assigned stage
     if (req.user.role === 'staff' && student.currentStage !== staffStage) {
       return res.status(403).json({
         message: `Access Denied. This student is at Stage ${student.currentStage}, not your assigned stage (${staffStage}).`
@@ -242,7 +251,7 @@ const advanceStage = async (req, res) => {
 
     // Send Email (non-blocking)
     try {
-      if (student.email) {
+      if (sendEmail && student.email) {
         const emailMap = { 2: 'stage1', 3: 'stage2', 4: 'stage3', 5: 'stage4', 6: 'stage5' };
         const emailKey = emailMap[nextStage];
         if (emailKey) {
