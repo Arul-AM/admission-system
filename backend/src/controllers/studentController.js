@@ -6,11 +6,10 @@ const { auditLog } = require('../middleware/audit');
 // Safe email import — won't crash if emailService.js is missing
 let sendEmail = null;
 try {
-  const emailService = require('../services/emailService');
-  sendEmail = emailService.sendEmail;
+  sendEmail = require('../services/emailService').sendEmail;
   console.log('✅ Email service loaded');
 } catch (e) {
-  console.warn('⚠️ emailService.js not found — emails disabled:', e.message);
+  console.warn('⚠️ emailService not found — emails disabled');
 }
 
 const STAGES = [
